@@ -55,14 +55,14 @@ public class DashBoard_Gui extends JFrame {
         Left.add(tfSearch); 
 
         // 필터 버튼
-        JButton Filter = new JButton("필터");
-        // Filter.addActionListener(e -> applyFilter());
-        Left.add(Filter);
+        JButton FilterButton = new JButton("필터");
+        FilterButton.addActionListener(e -> Filter());
+        Left.add(FilterButton);
 
-        // 필터 해제 버튼
-        JButton removeFilter = new JButton("필터 해제");
-        // removeFilter.addActionListener(e -> {tfSearch.setText(""); loadAllDataFromServer(); });
-        Left.add(removeFilter);
+        // 필터 해제 버튼 - 추후 구현 
+        // JButton removeFilterButton = new JButton("필터 해제");
+        // // removeFilterButton.addActionListener(e -> {tfSearch.setText(""); loadAllDataFromServer(); });
+        // Left.add(removeFilterButton);
 
         South.add(Left, BorderLayout.WEST);
 
@@ -70,14 +70,14 @@ public class DashBoard_Gui extends JFrame {
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT));
 
         // 수정 버튼
-        JButton Edit = new JButton("수정");
-        // Edit.addActionListener(e -> editSelectedAction());
-        right.add(Edit);
+        JButton EditButton = new JButton("수정");
+        EditButton.addActionListener(e -> Modify());
+        right.add(EditButton);
 
         // 삭제 버튼
-        JButton Delete = new JButton("삭제");
-        // Delete.addActionListener(e -> deleteSelectedAction());
-        right.add(Delete);
+        JButton DeleteButton = new JButton("삭제");
+        DeleteButton.addActionListener(e -> Delete());
+        right.add(DeleteButton);
 
         South.add(right, BorderLayout.EAST);
 
