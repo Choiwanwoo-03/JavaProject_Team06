@@ -2,7 +2,7 @@ package Filtering;
 
 public class Modifier {
 // ============================ 수정 기능 ============================
-    private void editSelectedAction(){
+    private void Modify(){
         // 선택한 테이블 행의 번호를 가져와서 변수 r에 저장
         int r = tbAction.getSelectedRow();
 
