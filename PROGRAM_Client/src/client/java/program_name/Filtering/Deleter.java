@@ -2,7 +2,7 @@ package Filtering;
 
 public class Deleter {
 // ============================ 삭제 기능(DashBoard_GUI) ============================
-    private void deleteSelectedAction(){
+    private void Delete(){
         int r = tbAction.getSelectedRow();
         if(r < 0) { JOptionPane.showMessageDialog(this, "삭제할 행을 선택하세요."); return; }
         int TableRow = tbAction.convertRowIndexToModel(r);
