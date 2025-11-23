@@ -2,7 +2,7 @@ package Filtering;
 
 public class Filter {
 // ============================ 필터 기능 (DashBoard_GUI) ============================
-    private void applyFilter(){
+    private void Filter(){
         String q = tfSearch.getText().trim().toLowerCase();
         // if(q.isEmpty()) {loadAllDataFromServer(); return;}
 
