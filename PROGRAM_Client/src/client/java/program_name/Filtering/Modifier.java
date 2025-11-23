@@ -49,12 +49,16 @@ public class Modifier {
             Double newQty = ((Number) qty.getValue()).doubleValue();
 
             // 포맷의 형식에 맞는지 검증
-            LocalDate.parse(newDate, DATE_FMT);
-            LocalTime.parse(newTime, TIME_FMT);
+            LocalDate parseDate = LocalDate.parse(newDate, DATE_FMT);
+            LocalTime parseTime = LocalTime.parse(newTime, TIME_FMT);
 
+            // 현재 날짜보다 미래면 오류 발생
+            if(parseDate.isAfter(today) || parseTime.isAfter(LocalTime.now())){
+                throw new IllegalArgumentException();
+            }
             // 유효값 검증
             if(newAction == null || newQty <= 0){
-                throw new IllegalArgumentException("유효하지 않은 행동 또는 수량입니다.");
+                throw new IllegalArgumentException();
             }
 
             // CO2e 단위 재계산
@@ -76,8 +80,7 @@ public class Modifier {
             JOptionPane.showMessageDialog(this, "기록이 성공적으로 수정되었습니다.");
 
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "수정 실패 : 입력 형식이 올바르지 않거나 데이터 오류입니다.\n" + e.getMessage(), "오류", JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "수정 실패 : 입력 형식이 올바르지 않거나 데이터 오류입니다.\n", "오류", JOptionPane.ERROR_MESSAGE);
         }
       }
     }
