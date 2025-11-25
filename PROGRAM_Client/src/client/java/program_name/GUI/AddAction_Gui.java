@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import Calculation.CarbonCalculator;
 
 public class AddAction_Gui extends JPanel {
 	
@@ -21,12 +22,13 @@ public class AddAction_Gui extends JPanel {
 	private static final Map<String, List<String>> actionData = new HashMap<>(); // 행동 데이터
 	private static final Map<String, Double> co2eFactors = new HashMap<>(); // CO2e 계수 데이터
 	private static final Map<String, String> tabUnits = new HashMap<>(); // 서브 탭 고정 단위
+	private final CarbonCalculator calculator; // 계산기
 	
 	static {
 		// 행동 데이터
 		actionData.put("교통", List.of("비행기", "중형 승용차", "기차", "KTX", "버스", "지하철"));
 		actionData.put("에너지", List.of("노트북(문서 작업)", "노트북(활성 및 영상 작업)", "전기밥솥(취사)", "전기밥솥(보온)", "LED 전등", "백열등"));
-		actionData.put("쓰레기", List.of("음식물 쓰레기", "플라스틱류", "종이류", "의류(섬유류)", "캔\금속류", "유리병", "일반 혼합폐기물(생활폐기물)"));
+		actionData.put("쓰레기", List.of("음식물 쓰레기", "플라스틱류", "종이류", "의류(섬유류)", "캔/금속류", "유리병", "일반 혼합폐기물(생활폐기물)"));
 		
 		// 교통 분야 CO2e 계수 데이터 (km)
 		co2eFactors.put("비행기", 0.152); // 1km 당 CO2e (kg)
@@ -77,6 +79,9 @@ public class AddAction_Gui extends JPanel {
 	private JButton button3; // 탭 3 (쓰레기): 기록 추가 버튼
 	
 	public AddAction_Gui() {
+		// calculator 초기화
+		calculator = new CarbonCalculator(co2eFactors);
+		
 		setLayout(new BorderLayout());
 		setBorder(new EmptyBorder(12, 12, 12, 12));
 		
@@ -198,15 +203,17 @@ public class AddAction_Gui extends JPanel {
 	        return;
 	    }
 		
+//		// 배출한 CO2e 양 계산
+//		double adCount = count;
+//		
+//		if (tabTitle.equals("쓰레기")) {
+//		    adCount = count / 100.0; 
+//		}
+//		
+//		double calculatedCo2e = adCount * co2eFactor;
+		
 		// 배출한 CO2e 양 계산
-		double adCount = count
-		
-		if (tabTitle.equals("쓰레기")) {
-			adCount = count
-		    adCount = count / 100.0; 
-		}
-		
-		double calculatedCo2e = adCount * co2eFactor;
+		double calculatedCo2e = calculator.CalculateActionCarbon(actionName, count, tabTitle);
 		
 		// 데이터 추출
 		Map<String, Object> logData = new HashMap<>();
