@@ -6,11 +6,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.*;
 
-/**
- * 서버 ← 클라이언트 데이터 수신 담당
- * 수신한 데이터는 DataWriter를 호출하여 DB에 저장한다.
- * (DB 직접 접근은 절대 하지 않음)
- */
 public class GetInformation {
 
     private final DataWriter writer = new DataWriter();
@@ -23,10 +18,21 @@ public class GetInformation {
         String cmd = in.readUTF();
 
         switch (cmd) {
-            case "SAVE_ALL" -> handleSaveAll(in);
-            case "UPDATE_MISSION" -> handleUpdateMission(in);
-            case "UNLOCK_EMOTICON" -> handleUnlockEmoticon(in);
-            default -> System.out.println("[SERVER][GetInformation] Unknown Command: " + cmd);
+        	case "SAVE_ALL":
+        		handleSaveAll(in);
+        		break;
+
+        	case "UPDATE_MISSION":
+        		handleUpdateMission(in);
+        		break;
+
+        	case "UNLOCK_EMOTICON":
+        		handleUnlockEmoticon(in);
+        		break;
+
+        	default:
+        		System.out.println("[SERVER][GetInformation] Unknown Command: " + cmd);
+        		break;
         }
     }
 
@@ -86,16 +92,22 @@ public class GetInformation {
         // Dashboard 갱신
         writer.replaceDashboard(nickname, dashboardRows);
 
+        // 날짜 확보 (Dashboard가 비어 있으면 현재 날짜 사용)
+        String safeDate;
+        if (!dashboardRows.isEmpty()) {
+            safeDate = (String) dashboardRows.get(0).get("DATE");
+        } else {
+            safeDate = java.time.LocalDate.now().toString();
+        }
+
         // Goal 저장
-        if (hasGoal && !dashboardRows.isEmpty()) {
-            String date = (String) dashboardRows.get(0).get("DATE");
-            writer.upsertGoal(nickname, date, todayResult, goalResult);
+        if (hasGoal) {
+            writer.upsertGoal(nickname, safeDate, todayResult, goalResult);
         }
 
         // Mission 저장
-        if (hasMission && !dashboardRows.isEmpty()) {
-            String date = (String) dashboardRows.get(0).get("DATE");
-            writer.upsertMission(nickname, date, todayMission, successMission);
+        if (hasMission) {
+            writer.upsertMission(nickname, safeDate, todayMission, successMission);
         }
 
         // Emoticon 저장
