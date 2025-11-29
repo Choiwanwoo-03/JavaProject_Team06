@@ -5,8 +5,7 @@ import java.util.*;
 
 public class DataWriter {
 
-    // TODO: 실제 DB 정보로 변경해야 함
-    private static final String URL = "jdbc:mysql://localhost:3306/your_db_name?serverTimezone=UTC";
+	private static final String URL = "jdbc:mysql://localhost:3306/your_db_name?serverTimezone=UTC";
     private static final String USER = "your_username";
     private static final String PASSWORD = "your_password";
 
@@ -14,10 +13,7 @@ public class DataWriter {
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
-    /** 
-     * 회원가입: USER_TABLE에 INSERT
-     * PK(USER_ID), UNIQUE(USER_NICKNAME)를 위반하면 false 반환 
-     */
+    /** 회원가입 INSERT */
     public boolean registerUser(String userId, String userPwd, String nickname) {
         String sql = "INSERT INTO USER_TABLE (USER_ID, USER_PWD, USER_NICKNAME) VALUES (?, ?, ?)";
 
@@ -32,32 +28,35 @@ public class DataWriter {
             return true;
 
         } catch (SQLIntegrityConstraintViolationException e) {
-            // PK/UNIQUE 중복인 경우
             return false;
-
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    /** 
-     * DASHBOARD_TABLE: 이 유저의 대시보드 전체를 삭제 후 새로 삽입 
-     * (프로그램 종료 시 전체 저장)
-     */
+    /** DASHBOARD 전체 교체 저장 */
     public void replaceDashboard(String nickname, List<Map<String, Object>> rows) {
         String deleteSql = "DELETE FROM DASHBOARD_TABLE WHERE USER_NICKNAME = ?";
-        String insertSql = "INSERT INTO DASHBOARD_TABLE (USER_NICKNAME, DATE, TIME, TYPE, RESULT, COUNT, UNIT) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String insertSql = "INSERT INTO DASHBOARD_TABLE (USER_NICKNAME, DATE, TIME, TYPE, RESULT, COUNT, UNIT) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = connect()) {
+
             conn.setAutoCommit(false);
 
+            // 1) 기존 데이터 삭제
             try (PreparedStatement del = conn.prepareStatement(deleteSql)) {
                 del.setString(1, nickname);
                 del.executeUpdate();
             }
 
+            // 2) 새 데이터가 없으면 여기서 종료
+            if (rows == null || rows.isEmpty()) {
+                conn.commit();
+                return;
+            }
+
+            // 3) 새 데이터 삽입
             try (PreparedStatement ins = conn.prepareStatement(insertSql)) {
                 for (Map<String, Object> row : rows) {
                     ins.setString(1, nickname);
@@ -73,18 +72,20 @@ public class DataWriter {
             }
 
             conn.commit();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    /** GOAL_TABLE 업서트 */
+    /** GOAL UPSERT */
     public void upsertGoal(String nickname, String date, String todayResult, String goalResult) {
-        String sql = """
-            INSERT INTO GOAL_TABLE (USER_NICKNAME, DATE, TODAY_RESULT, GOAL_RESULT)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE TODAY_RESULT = ?, GOAL_RESULT = ?
-        """;
+
+    	String sql =
+    	        "INSERT INTO GOAL_TABLE (USER_NICKNAME, DATE, TODAY_RESULT, GOAL_RESULT) "
+    	        + "VALUES (?, ?, ?, ?) "
+    	        + "ON DUPLICATE KEY UPDATE TODAY_RESULT = ?, GOAL_RESULT = ?";
+
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -103,13 +104,13 @@ public class DataWriter {
         }
     }
 
-    /** MISSION_TABLE 업서트 (실시간 적용 가능) */
+    /** MISSION UPSERT */
     public void upsertMission(String nickname, String date, String todayMission, int successMission) {
-        String sql = """
-            INSERT INTO MISSION_TABLE (USER_NICKNAME, DATE, TODAY_MISSION, SUCCESS_MISSION)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE TODAY_MISSION = ?, SUCCESS_MISSION = ?
-        """;
+
+    	String sql =
+    	        "INSERT INTO MISSION_TABLE (USER_NICKNAME, DATE, TODAY_MISSION, SUCCESS_MISSION) "
+    	        + "VALUES (?, ?, ?, ?) "
+    	        + "ON DUPLICATE KEY UPDATE TODAY_MISSION = ?, SUCCESS_MISSION = ?";
 
         try (Connection conn = connect();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -128,8 +129,9 @@ public class DataWriter {
         }
     }
 
-    /** EMOTICON_TABLE: 이모티콘 해금 (중복 시 무시) */
+    /** EMOTICON INSERT */
     public void insertEmoticon(String nickname, String emoticonName) {
+
         String sql = "INSERT IGNORE INTO EMOTICON_TABLE (USER_NICKNAME, RELEASED_EMOTICON) VALUES (?, ?)";
 
         try (Connection conn = connect();
