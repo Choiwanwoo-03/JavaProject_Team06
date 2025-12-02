@@ -1,7 +1,5 @@
 package GUI;
 
-
-
 import Goal.CompareResult;
 import Goal.MakeSolution;
 
@@ -11,7 +9,12 @@ import java.awt.*;
 import java.util.List;
 import java.util.function.Supplier;
 
-
+/**
+ * 목표 달성 트래커 UI 패널.
+ * - todayEmissionSupplier: 오늘 배출량(kg) 공급자(테이블 합산 등)
+ * - goalSupplier: 목표값(kg) 공급자(고정/파일로드)
+ * - 버튼 클릭 시 비교/피드백 갱신
+ */
 public class AchieveGoal_Gui extends JPanel {
     private final JLabel lblGoal = new JLabel();
     private final JLabel lblToday = new JLabel();
