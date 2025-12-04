@@ -2,7 +2,7 @@ package Socket;
 
 import CommunicateClient.GetInformation;
 import CommunicateClient.GiveInformation;
-import CommunicateClient.LoginManager;
+import CommunicateClient.LoginManager_test;
 
 import java.io.*;
 import java.net.Socket;
@@ -57,7 +57,7 @@ public class ConnectedClient extends Thread {
         String userId = in.readUTF();
         String userPwd = in.readUTF();
 
-        LoginManager loginManager = new LoginManager();
+        LoginManager_test loginManager = new LoginManager_test();
         this.nickname = loginManager.verify(userId, userPwd);
 
         if (nickname == null) {
