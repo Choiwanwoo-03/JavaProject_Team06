@@ -3,176 +3,219 @@ package database;
 import java.sql.*;
 import java.util.*;
 
+/**
+ * DB에 데이터를 저장(INSERT / UPDATE / DELETE)하는 전용 클래스
+ * - 회원가입
+ * - 대시보드 저장
+ * - 목표 저장
+ * - 미션 저장
+ * - 이모티콘 저장 담당
+ */
 public class DataWriter {
 
-    private static final String URL =
-            "jdbc:mysql://localhost:3306/ecoactiontracker"
-            + "?serverTimezone=UTC"
-            + "&useSSL=false"
-            + "&allowPublicKeyRetrieval=true";
-
-    private static final String USER = "root";
-    private static final String PASSWORD = "vkdnj3028@";
-
-    // ★ 공통 DB 커넥션 — 이제 connect() 하나만 사용
+    /**
+     * DB 연결 생성 메소드
+     */
     private Connection connect() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+        String url = "jdbc:mysql://localhost:3306/ecoactiontracker?serverTimezone=Asia/Seoul";
+        String user = "root";
+        String pw   = "vkdnj3028@";
+        return DriverManager.getConnection(url, user, pw);
     }
 
-    // ★ getConnection() 삭제 (또는 connect() 호출하도록 변경)
-    // 기존 getConnection()은 DB 이름/비번이 달라서 문제의 원인이었음
-
-    /** 회원가입 INSERT */
-    public boolean registerUser(String userId, String userPwd, String nickname) {
+    // ============================================================
+    // 1) 회원가입 (USER_TABLE에 계정 정보 저장)
+    // ============================================================
+    public boolean registerUser(String id, String pw, String nickname) {
         String sql = "INSERT INTO USER_TABLE (USER_ID, USER_PWD, USER_NICKNAME) VALUES (?, ?, ?)";
-        try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, userId);
-            pstmt.setString(2, userPwd);
-            pstmt.setString(3, nickname);
-            pstmt.executeUpdate();
-            return true;
 
-        } catch (SQLIntegrityConstraintViolationException e) {
-            return false;
-        } catch (Exception e) {
-            e.printStackTrace();
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, id);
+            ps.setString(2, pw);
+            ps.setString(3, nickname);
+
+            // 1건 이상 삽입되면 성공
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("[DB][registerUser] 실패: " + e.getMessage());
             return false;
         }
     }
 
-    /** DASHBOARD 전체 교체 저장 */
-    public boolean replaceDashboard(String nickname, List<Map<String, Object>> rows) {
+    // ============================================================
+    // 2) Dashboard 전체 저장 (기존 데이터 삭제 후 전체 재삽입)
+    // ============================================================
+    public void replaceDashboard(String nickname, List<Map<String, Object>> rows) {
+        String deleteSQL = "DELETE FROM DASHBOARD_TABLE WHERE USER_NICKNAME = ?";
+        String insertSQL = "INSERT INTO DASHBOARD_TABLE (USER_NICKNAME, DATE, TIME, TYPE, COUNT, UNIT, RESULT) "
+                         + "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-        String deleteSql = "DELETE FROM dashboard_table WHERE USER_NICKNAME = ?";
-        String insertSql =
-                "INSERT INTO dashboard_table (USER_NICKNAME, DATE, TIME, TYPE, RESULT, COUNT, UNIT)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = connect()) {
+            conn.setAutoCommit(false);  // 트랜잭션 시작
 
-        try (Connection conn = connect();
-             PreparedStatement psDelete = conn.prepareStatement(deleteSql);
-             PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
-
-            psDelete.setString(1, nickname);
-            psDelete.executeUpdate();
-
-            for (Map<String, Object> r : rows) {
-                psInsert.setString(1, nickname);
-                psInsert.setString(2, (String) r.get("DATE"));
-                psInsert.setString(3, (String) r.get("TIME"));
-                psInsert.setString(4, (String) r.get("TYPE"));
-                psInsert.setDouble(5, (Double) r.get("RESULT"));
-                psInsert.setDouble(6, (Double) r.get("COUNT"));
-                psInsert.setString(7, (String) r.get("UNIT"));
-                psInsert.addBatch();
+            // 기존 대시보드 기록 삭제
+            try (PreparedStatement ps = conn.prepareStatement(deleteSQL)) {
+                ps.setString(1, nickname);
+                ps.executeUpdate();
             }
 
-            psInsert.executeBatch();
-            return true;
+            // 새로운 대시보드 기록 일괄 삽입
+            try (PreparedStatement ps2 = conn.prepareStatement(insertSQL)) {
+                for (Map<String, Object> row : rows) {
+                    ps2.setString(1, nickname);
+                    ps2.setString(2, String.valueOf(row.get("DATE")));
+                    ps2.setString(3, String.valueOf(row.get("TIME")));
+                    ps2.setString(4, String.valueOf(row.get("TYPE")));
+                    ps2.setDouble(5, Double.parseDouble(String.valueOf(row.get("COUNT"))));
+                    ps2.setString(6, String.valueOf(row.get("UNIT")));
+                    ps2.setDouble(7, Double.parseDouble(String.valueOf(row.get("RESULT"))));
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+                    ps2.addBatch();
+                }
+                ps2.executeBatch(); // 일괄 실행
+            }
+
+            conn.commit(); // 최종 반영
+            System.out.println("[DB] Dashboard 저장 완료");
+
+        } catch (SQLException e) {
+            System.out.println("[DB][replaceDashboard] 오류: " + e.getMessage());
         }
     }
 
-    /** GOAL UPSERT */
-    public void upsertGoal(String nickname, String date, String todayResult, String goalResult) {
+    // ============================================================
+    // 3) Goal 저장 (있으면 UPDATE, 없으면 INSERT)
+    // ============================================================
+    public void upsertGoal(String nickname, String todayResult, String goalResult) {
         String sql =
                 "INSERT INTO GOAL_TABLE (USER_NICKNAME, DATE, TODAY_RESULT, GOAL_RESULT) "
-                        + "VALUES (?, ?, ?, ?) "
-                        + "ON DUPLICATE KEY UPDATE TODAY_RESULT = ?, GOAL_RESULT = ?";
+                + "VALUES (?, CURDATE(), ?, ?) "
+                + "ON DUPLICATE KEY UPDATE TODAY_RESULT = ?, GOAL_RESULT = ?";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            pstmt.setString(2, date);
-            pstmt.setString(3, todayResult);
-            pstmt.setString(4, goalResult);
-            pstmt.setString(5, todayResult);
-            pstmt.setString(6, goalResult);
-            pstmt.executeUpdate();
+            ps.setString(1, nickname);
+            ps.setString(2, todayResult);
+            ps.setString(3, goalResult);
 
-        } catch (Exception e) {
-            e.printStackTrace();
+            // 중복일 경우 UPDATE 값
+            ps.setString(4, todayResult);
+            ps.setString(5, goalResult);
+
+            ps.executeUpdate();
+            System.out.println("[DB] Goal 저장 완료");
+
+        } catch (SQLException e) {
+            System.out.println("[DB][upsertGoal] 오류: " + e.getMessage());
         }
     }
 
-    /** MISSION UPSERT */
-    public void upsertMission(String nickname, String date, String todayMission, int successMission) {
+    // ============================================================
+    // 4) Mission 저장 (MISSION 1~3 + 성공 여부 UPSERT)
+    // ============================================================
+    public void upsertMission(String nickname, Map<String, Object> mission) {
+
         String sql =
-                "INSERT INTO MISSION_TABLE (USER_NICKNAME, DATE, TODAY_MISSION, SUCCESS_MISSION) "
-                        + "VALUES (?, ?, ?, ?) "
-                        + "ON DUPLICATE KEY UPDATE TODAY_MISSION = ?, SUCCESS_MISSION = ?";
+                "INSERT INTO MISSION_TABLE (USER_NICKNAME, DATE, "
+                + "MISSION1_NAME, MISSION1_SUCCESS, "
+                + "MISSION2_NAME, MISSION2_SUCCESS, "
+                + "MISSION3_NAME, MISSION3_SUCCESS) "
+                + "VALUES (?, CURDATE(), ?, ?, ?, ?, ?, ?) "
+                + "ON DUPLICATE KEY UPDATE "
+                + "MISSION1_NAME = ?, MISSION1_SUCCESS = ?, "
+                + "MISSION2_NAME = ?, MISSION2_SUCCESS = ?, "
+                + "MISSION3_NAME = ?, MISSION3_SUCCESS = ?";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            pstmt.setString(2, date);
-            pstmt.setString(3, todayMission);
-            pstmt.setInt(4, successMission);
-            pstmt.setString(5, todayMission);
-            pstmt.setInt(6, successMission);
+            // 미션 데이터 추출
+            String m1 = String.valueOf(mission.get("MISSION1_NAME"));
+            int s1 = Integer.parseInt(String.valueOf(mission.get("MISSION1_SUCCESS")));
 
-            pstmt.executeUpdate();
+            String m2 = String.valueOf(mission.get("MISSION2_NAME"));
+            int s2 = Integer.parseInt(String.valueOf(mission.get("MISSION2_SUCCESS")));
 
-        } catch (Exception e) {
-            e.printStackTrace();
+            String m3 = String.valueOf(mission.get("MISSION3_NAME"));
+            int s3 = Integer.parseInt(String.valueOf(mission.get("MISSION3_SUCCESS")));
+
+            // INSERT 값
+            ps.setString(1, nickname);
+            ps.setString(2, m1);
+            ps.setInt(3, s1);
+            ps.setString(4, m2);
+            ps.setInt(5, s2);
+            ps.setString(6, m3);
+            ps.setInt(7, s3);
+
+            // UPDATE 값
+            ps.setString(8,  m1);
+            ps.setInt(9,     s1);
+            ps.setString(10, m2);
+            ps.setInt(11,    s2);
+            ps.setString(12, m3);
+            ps.setInt(13,    s3);
+
+            ps.executeUpdate();
+            System.out.println("[DB] Mission 저장 완료");
+
+        } catch (SQLException e) {
+            System.out.println("[DB][upsertMission] 오류: " + e.getMessage());
         }
     }
 
-    /** EMOTICON INSERT */
-    public void insertEmoticon(String nickname, String emoticonName) {
+    // ============================================================
+    // 5) 여러 이모티콘 저장 (SAVE_ALL 시 사용)
+    // ============================================================
+    public void insertEmoticon(String nickname, List<String> names) {
+
+        if (names == null || names.isEmpty()) return;
+
         String sql =
-                "INSERT IGNORE INTO EMOTICON_TABLE (USER_NICKNAME, RELEASED_EMOTICON) VALUES (?, ?)";
+                "INSERT IGNORE INTO EMOTICON_TABLE (USER_NICKNAME, EMOTICON_NAME, DATE) "
+                + "VALUES (?, ?, CURDATE())";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            pstmt.setString(2, emoticonName);
-            pstmt.executeUpdate();
+            // 보유한 이모티콘 전체 일괄 저장
+            for (String name : names) {
+                ps.setString(1, nickname);
+                ps.setString(2, name);
+                ps.addBatch();
+            }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    
-    /** 
-     * 오늘 미션을 완전히 덮어쓰기 위해
-     * 기존 데이터를 DELETE 후 INSERT
-     */
-    public void replaceMission(String nickname, String date, String todayMission, int successMission) {
+            ps.executeBatch();
+            System.out.println("[DB] 이모티콘 목록 저장 완료");
 
-        String deleteSql = "DELETE FROM MISSION_TABLE WHERE USER_NICKNAME = ? AND DATE = ?";
-        String insertSql = 
-            "INSERT INTO MISSION_TABLE (USER_NICKNAME, DATE, TODAY_MISSION, SUCCESS_MISSION) " +
-            "VALUES (?, ?, ?, ?)";
-
-        try (Connection conn = connect();
-             PreparedStatement psDelete = conn.prepareStatement(deleteSql);
-             PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
-
-            // DELETE
-            psDelete.setString(1, nickname);
-            psDelete.setString(2, date);
-            psDelete.executeUpdate();
-
-            // INSERT
-            psInsert.setString(1, nickname);
-            psInsert.setString(2, date);
-            psInsert.setString(3, todayMission);
-            psInsert.setInt(4, successMission);
-
-            psInsert.executeUpdate();
-
-            System.out.println("[DB] MISSION_TABLE replaced for " + nickname + " / " + date);
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][insertEmoticon] 오류: " + e.getMessage());
         }
     }
 
+    // ============================================================
+    // 6) 단일 이모티콘 저장 (보상 획득 시 1개 추가)
+    // ============================================================
+    public void insertSingleEmoticon(String nickname, String name) {
+        String sql =
+                "INSERT IGNORE INTO EMOTICON_TABLE (USER_NICKNAME, EMOTICON_NAME, DATE) "
+                + "VALUES (?, ?, CURDATE())";
+
+        try (Connection conn = connect();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, nickname);
+            ps.setString(2, name);
+            ps.executeUpdate();
+
+            System.out.println("[DB] 이모티콘 1개 저장 완료");
+
+        } catch (SQLException e) {
+            System.out.println("[DB][insertSingleEmoticon] 오류: " + e.getMessage());
+        }
+    }
 }

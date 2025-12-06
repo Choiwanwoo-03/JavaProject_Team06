@@ -3,153 +3,179 @@ package database;
 import java.sql.*;
 import java.util.*;
 
+/**
+ * DB에서 조회(SELECT) 전용으로 사용하는 클래스
+ * - 로그인
+ * - 대시보드
+ * - 목표(Goal)
+ * - 미션(Mission)
+ * - 이모티콘 조회 담당
+ */
 public class DataReader {
 
-    // TODO: 실제 DB 정보로 변경해야 함
-    private static final String URL = "jdbc:mysql://localhost:3306/ecoactiontracker?serverTimezone=UTC";
-    private static final String USER = "root";
-    private static final String PASSWORD = "vkdnj3028@";
-
+    /**
+     * DB 연결 생성 메소드
+     */
     private Connection connect() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASSWORD);
+        String url = "jdbc:mysql://localhost:3306/ecoactiontracker?serverTimezone=Asia/Seoul";
+        String user = "root";
+        String pw   = "vkdnj3028@";
+        return DriverManager.getConnection(url, user, pw);
     }
 
-    /** 
-     * 로그인 확인 
-     * 입력한 ID, PWD가 USER_TABLE에 존재하면 닉네임 반환
-     * 실패하면 null 반환
-     */
-    public String login(String userId, String userPwd) {
+    // ============================================================
+    // 1) 로그인 (ID + PW → 닉네임 반환)
+    // ============================================================
+    public String login(String id, String pw) {
         String sql = "SELECT USER_NICKNAME FROM USER_TABLE WHERE USER_ID = ? AND USER_PWD = ?";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, userId);
-            pstmt.setString(2, userPwd);
+            // 입력받은 ID, PW 바인딩
+            ps.setString(1, id);
+            ps.setString(2, pw);
 
-            ResultSet rs = pstmt.executeQuery();
-
+            // 쿼리 실행
+            ResultSet rs = ps.executeQuery();
             if (rs.next()) {
+                // 로그인 성공 시 닉네임 반환
                 return rs.getString("USER_NICKNAME");
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][login] 오류: " + e.getMessage());
         }
-
-        return null; // 로그인 실패
+        return null;
     }
 
-    /** 
-     * DASHBOARD_TABLE: 특정 유저의 전체 기록 읽기 
-     */
-    public List<Map<String, Object>> readDashboard(String nickname) {
-        String sql = "SELECT * FROM DASHBOARD_TABLE WHERE USER_NICKNAME = ? ORDER BY DATE, TIME";
+    // ============================================================
+    // 2) Dashboard 조회 (해당 유저의 모든 대시보드 기록)
+    // ============================================================
+    public List<Map<String, Object>> getDashboard(String nickname) {
+        List<Map<String, Object>> list = new ArrayList<>();
 
-        List<Map<String, Object>> result = new ArrayList<>();
+        String sql =
+                "SELECT DATE, TIME, TYPE, COUNT, UNIT, RESULT "
+              + "FROM DASHBOARD_TABLE WHERE USER_NICKNAME = ? ORDER BY DATE, TIME";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            ResultSet rs = pstmt.executeQuery();
+            ps.setString(1, nickname);
+            ResultSet rs = ps.executeQuery();
 
+            // 한 행씩 Map 형태로 변환하여 List에 저장
             while (rs.next()) {
                 Map<String, Object> row = new HashMap<>();
-
-                row.put("DATE", rs.getDate("DATE").toString());
-                row.put("TIME", rs.getTime("TIME").toString());
+                row.put("DATE", rs.getString("DATE"));
+                row.put("TIME", rs.getString("TIME"));
                 row.put("TYPE", rs.getString("TYPE"));
-                row.put("RESULT", rs.getDouble("RESULT"));
                 row.put("COUNT", rs.getDouble("COUNT"));
                 row.put("UNIT", rs.getString("UNIT"));
-
-                result.add(row);
+                row.put("RESULT", rs.getDouble("RESULT"));
+                list.add(row);
             }
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][getDashboard] 오류: " + e.getMessage());
         }
 
-        return result;
+        return list;
     }
 
-    /** 
-     * GOAL_TABLE: 해당 날짜의 목표/오늘결과 읽기
-     */
-    public Map<String, Object> readGoal(String nickname, String date) {
-        String sql = "SELECT TODAY_RESULT, GOAL_RESULT FROM GOAL_TABLE WHERE USER_NICKNAME = ? AND DATE = ?";
-        Map<String, Object> map = new HashMap<>();
+    // ============================================================
+    // 3) Goal 조회 (오늘의 목표 결과)
+    // ============================================================
+    public Map<String, Object> getGoal(String nickname) {
+
+        String sql =
+                "SELECT TODAY_RESULT, GOAL_RESULT "
+              + "FROM GOAL_TABLE WHERE USER_NICKNAME = ? AND DATE = CURDATE()";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            pstmt.setString(2, date);
+            ps.setString(1, nickname);
+            ResultSet rs = ps.executeQuery();
 
-            ResultSet rs = pstmt.executeQuery();
-
+            // 오늘 날짜 기준 목표 정보가 있으면 반환
             if (rs.next()) {
+                Map<String, Object> map = new HashMap<>();
                 map.put("TODAY_RESULT", rs.getString("TODAY_RESULT"));
-                map.put("GOAL_RESULT", rs.getString("GOAL_RESULT"));
+                map.put("GOAL_RESULT",  rs.getString("GOAL_RESULT"));
+                return map;
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][getGoal] 오류: " + e.getMessage());
         }
 
-        return map;
+        return null;
     }
 
-    /** 
-     * MISSION_TABLE: 해당 날짜의 미션 정보 읽기
-     */
-    public Map<String, Object> readMission(String nickname, String date) {
-        String sql = "SELECT TODAY_MISSION, SUCCESS_MISSION FROM MISSION_TABLE WHERE USER_NICKNAME = ? AND DATE = ?";
-        Map<String, Object> map = new HashMap<>();
+    // ============================================================
+    // 4) Mission 조회 (MISSION1 / 2 / 3 + 성공 여부)
+    // ============================================================
+    public Map<String, Object> getMission(String nickname) {
+
+        String sql =
+                "SELECT MISSION1_NAME, MISSION1_SUCCESS, "
+              + "       MISSION2_NAME, MISSION2_SUCCESS, "
+              + "       MISSION3_NAME, MISSION3_SUCCESS "
+              + "FROM MISSION_TABLE WHERE USER_NICKNAME = ? AND DATE = CURDATE()";
 
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
-            pstmt.setString(2, date);
+            ps.setString(1, nickname);
+            ResultSet rs = ps.executeQuery();
 
-            ResultSet rs = pstmt.executeQuery();
-
+            // 오늘 날짜 기준 미션 정보 반환
             if (rs.next()) {
-                map.put("TODAY_MISSION", rs.getString("TODAY_MISSION"));
-                map.put("SUCCESS_MISSION", rs.getInt("SUCCESS_MISSION"));
+                Map<String, Object> map = new HashMap<>();
+
+                map.put("MISSION1_NAME",    rs.getString("MISSION1_NAME"));
+                map.put("MISSION1_SUCCESS", rs.getInt("MISSION1_SUCCESS"));
+
+                map.put("MISSION2_NAME",    rs.getString("MISSION2_NAME"));
+                map.put("MISSION2_SUCCESS", rs.getInt("MISSION2_SUCCESS"));
+
+                map.put("MISSION3_NAME",    rs.getString("MISSION3_NAME"));
+                map.put("MISSION3_SUCCESS", rs.getInt("MISSION3_SUCCESS"));
+
+                return map;
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][getMission] 오류: " + e.getMessage());
         }
 
-        return map;
+        return null;
     }
 
-    /** 
-     * EMOTICON_TABLE: 해금된 이모티콘 목록 읽기
-     */
-    public List<String> readEmoticons(String nickname) {
-        String sql = "SELECT RELEASED_EMOTICON FROM EMOTICON_TABLE WHERE USER_NICKNAME = ?";
-
+    // ============================================================
+    // 5) 이모티콘 조회 (유저가 보유한 이모티콘 목록)
+    // ============================================================
+    public List<String> getEmoticons(String nickname) {
         List<String> list = new ArrayList<>();
 
+        String sql =
+                "SELECT EMOTICON_NAME FROM EMOTICON_TABLE "
+              + "WHERE USER_NICKNAME = ? ORDER BY DATE";
+
         try (Connection conn = connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            pstmt.setString(1, nickname);
+            ps.setString(1, nickname);
+            ResultSet rs = ps.executeQuery();
 
-            ResultSet rs = pstmt.executeQuery();
-
+            // 보유한 이모티콘 이름만 리스트로 저장
             while (rs.next()) {
-                list.add(rs.getString("RELEASED_EMOTICON"));
+                list.add(rs.getString("EMOTICON_NAME"));
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            System.out.println("[DB][getEmoticons] 오류: " + e.getMessage());
         }
 
         return list;
