@@ -4,116 +4,155 @@ import CommunicateClient.GetInformation;
 import CommunicateClient.GiveInformation;
 import CommunicateClient.LoginManager;
 import database.DataWriter;
-import java.io.*;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.Socket;
 
+/**
+ * 각 클라이언트와 1:1로 통신하는 서버 측 스레드
+ * - 회원가입 / 로그인 처리
+ * - 클라이언트 데이터 저장 및 동기화 요청 처리
+ */
 public class ConnectedClient extends Thread {
 
-    private Socket socket;
-    private ServerSocket server; // ← 패키지 경로 명시
+    // 클라이언트와 연결된 소켓
+    private final Socket socket;
 
+    // 서버 메인 소켓 (접속 리스트 관리용)
+    private final ServerSocket server;
+
+    // 클라이언트와의 입출력 스트림
     private DataInputStream in;
     private DataOutputStream out;
 
-    private String nickname = null;
+    // 로그인 성공 시 저장되는 사용자 닉네임
+    private String nickname;
 
+    // 로그인 인증용
+    private final LoginManager loginManager = new LoginManager();
+
+    // 클라이언트 → 서버 데이터 수신 처리 담당
     private final GetInformation getter = new GetInformation();
-    private final GiveInformation giver = new GiveInformation();
+
+    // 서버 → 클라이언트 데이터 송신 담당
+    private GiveInformation giver;
 
     public ConnectedClient(Socket socket, ServerSocket server) {
         this.socket = socket;
         this.server = server;
-
-        try {
-            in = new DataInputStream(socket.getInputStream());
-            out = new DataOutputStream(socket.getOutputStream());
-        } catch (IOException e) {
-            System.out.println("[SERVER][ConnectedClient] 스트림 생성 오류");
-        }
     }
 
+    /**
+     * 클라이언트와의 통신을 계속 대기하는 메인 스레드 루프
+     */
     @Override
     public void run() {
         try {
+            // 스트림 초기화
+            in  = new DataInputStream(socket.getInputStream());
+            out = new DataOutputStream(socket.getOutputStream());
+
+            // 출력 스트림이 준비된 후 송신 객체 생성
+            this.giver = new GiveInformation(out);
+
+            System.out.println("[SERVER] 클라이언트 수신 스레드 시작");
+
             while (true) {
-                String cmd = in.readUTF();   // ★ 명령어를 여기서만 읽음
+                // 클라이언트 명령 수신
+                String cmd = in.readUTF();
+                System.out.println("[SERVER] CMD 수신: " + cmd);
 
-                if (cmd.equals("LOGIN")) {
+                if ("LOGIN".equals(cmd)) {
                     handleLogin();
-                    continue;
-                }
-
-                if (cmd.equals("REGISTER")) {
+                } else if ("REGISTER".equals(cmd)) {
                     handleRegister();
-                    continue;
+                } else if ("REQUEST_SYNC".equals(cmd)) {
+                    handleRequestSync();
+                } else {
+                    // SAVE_ALL, UPDATE_MISSION, UNLOCK_EMOTICON 등 처리
+                    getter.handle(cmd, in);
                 }
-
-                // ★ cmd를 그대로 넘김
-                getter.handle(cmd, in);
             }
-        } catch (Exception e) {
-            System.out.println("[SERVER][ConnectedClient] 클라이언트 종료");
+
+        } catch (IOException e) {
+            System.out.println("[SERVER] 클라이언트 통신 종료: " + e.getMessage());
         } finally {
-            server.removeClient(this);
-            try { socket.close(); } catch (Exception ignore) {}
+            close();
         }
     }
 
-
-
+    /**
+     * 로그인 처리
+     */
     private void handleLogin() throws IOException {
-        String userId = in.readUTF();
-        String userPwd = in.readUTF();
+        String id = in.readUTF();
+        String pw = in.readUTF();
 
-        LoginManager loginManager = new LoginManager();
-        this.nickname = loginManager.verify(userId, userPwd);
+        System.out.println("[SERVER][LOGIN] 요청 수신 - ID=" + id);
 
-        if (nickname == null) {
+        // DB에서 ID/PW 검증
+        String nick = loginManager.verify(id, pw);
+
+        if (nick != null) {
+            this.nickname = nick;
+
+            out.writeUTF("LOGIN_OK");
+            out.writeUTF(nick);
+
+            // 로그인 성공 시 즉시 전체 데이터 동기화 전송
+            giver.sendAllUserData(nick);
+
+        } else {
             out.writeUTF("LOGIN_FAIL");
-            out.flush();
-            return;
         }
-
-        out.writeUTF("LOGIN_OK");
-        out.writeUTF(nickname);
         out.flush();
-
-        giver.sendAllUserData(nickname, out);
     }
-    
- // ================== 회원가입 처리 ==================
-    private void handleRegister() {
-        try {
-            // 1) 클라이언트가 보낸 회원가입 정보 읽기
-            String userId   = in.readUTF();
-            String userPwd  = in.readUTF();
-            String nickname = in.readUTF();
 
-            System.out.println("[SERVER][REGISTER] 요청 수신 - ID=" + userId + ", nickname=" + nickname);
+    /**
+     * 회원가입 처리
+     */
+    private void handleRegister() throws IOException {
+        String id = in.readUTF();
+        String pw = in.readUTF();
+        String nickname = in.readUTF();
 
-            // 2) DB에 사용자 등록
-            DataWriter writer = new DataWriter();
-            boolean success   = writer.registerUser(userId, userPwd, nickname);
+        DataWriter writer = new DataWriter();
+        boolean ok = writer.registerUser(id, pw, nickname);
 
-            // 3) 결과 전송
-            if (success) {
-                out.writeUTF("REGISTER_OK");
-                System.out.println("[SERVER][REGISTER] 성공 - ID=" + userId);
-            } else {
-                // 중복 ID 또는 기타 오류
-                out.writeUTF("REGISTER_FAIL");
-                System.out.println("[SERVER][REGISTER] 실패(중복 또는 오류) - ID=" + userId);
-            }
-            out.flush();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            try {
-                // 예외 발생 시에도 클라이언트 측에서 처리할 수 있도록 FAIL 전송
-                out.writeUTF("REGISTER_FAIL");
-                out.flush();
-            } catch (Exception ignore) {}
+        if (ok) {
+            out.writeUTF("REGISTER_OK");
+        } else {
+            out.writeUTF("REGISTER_FAIL");
         }
+        out.flush();
     }
 
+    /**
+     * 클라이언트가 수동으로 전체 데이터 동기화를 요청할 때 처리
+     */
+    private void handleRequestSync() throws IOException {
+        String nick = in.readUTF();
+        giver.sendAllUserData(nick);
+        out.flush();
+    }
+
+    /**
+     * 소켓 종료 및 서버 클라이언트 목록에서 제거
+     */
+    private void close() {
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException ignore) {
+        }
+
+        if (server != null) {
+            server.removeClient(this);
+        }
+
+        System.out.println("[SERVER] 클라이언트 연결 종료 및 정리 완료");
+    }
 }
