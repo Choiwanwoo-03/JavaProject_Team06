@@ -67,8 +67,6 @@
 
 GUI: Java Swing
 
-그래프 라이브러리: (미정. JFreeChart/XChart 등 Java 기반 라이브러리 예상)
-
 개발 환경: Java 응용프로젝트 과정
 
 ---
