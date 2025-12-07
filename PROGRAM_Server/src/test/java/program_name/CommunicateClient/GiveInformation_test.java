@@ -4,69 +4,103 @@ import database.DataReader;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * 서버 → 클라이언트 데이터 전송 담당
- * DB 조회는 DataReader가 수행하고,
- * 이 클래스는 그 데이터를 오직 클라이언트로 보내는 역할만 수행한다.
- */
 public class GiveInformation {
 
     private final DataReader reader = new DataReader();
+    private final DataOutputStream out;
 
-    /**
-     * 로그인 성공 후, 클라이언트에게 전체 동기화 데이터(SYNC_ALL)를 전송한다.
-     * 전달 내용: Dashboard, Goal, Mission, Emoticons
-     */
-    public void sendAllUserData(String nickname, DataOutputStream out) throws IOException {
+    public GiveInformation(DataOutputStream out) {
+        this.out = out;
+    }
 
-        String today = LocalDate.now().toString();
+    // =====================================================================
+    //  SYNC_ALL : 로그인 직후 클라이언트 전체 데이터 동기화
+    // =====================================================================
+    public void sendAllUserData(String nickname) throws IOException {
 
-        // DB에서 데이터 읽기 (DataReader 사용)
-        List<Map<String, Object>> dashboard = reader.readDashboard(nickname);
-        Map<String, Object> goal = reader.readGoal(nickname, today);
-        Map<String, Object> mission = reader.readMission(nickname, today);
-        List<String> emoticons = reader.readEmoticons(nickname);
+        String today = java.time.LocalDate.now().toString();
 
-        // ===== 클라이언트로 데이터 전송 =====
+        // ---- DB에서 데이터 조회 ----
+        List<Map<String, Object>> dashboard = reader.getDashboard(nickname);
+        Map<String, Object> goal = reader.getGoal(nickname);
+        Map<String, Object> mission = reader.getMission(nickname);
+        List<String> emoticons = reader.getEmoticons(nickname);
+
+        // ---- SYNC_ALL 헤더 ----
         out.writeUTF("SYNC_ALL");
 
-        // 대시보드 전송
+        // ============================================================
+        // 1) Dashboard
+        // ============================================================
         out.writeInt(dashboard.size());
-        for (Map<String, Object> row : dashboard) {
-            out.writeUTF((String) row.get("DATE"));
-            out.writeUTF((String) row.get("TIME"));
-            out.writeUTF((String) row.get("TYPE"));
-            out.writeDouble((Double) row.get("RESULT"));
-            out.writeDouble((Double) row.get("COUNT"));
-            out.writeUTF((String) row.get("UNIT"));
+
+        for (Map<String, Object> r : dashboard) {
+            out.writeUTF(String.valueOf(r.get("DATE")));
+            out.writeUTF(String.valueOf(r.get("TIME")));
+            out.writeUTF(String.valueOf(r.get("TYPE")));
+
+            // RESULT / COUNT → 클라이언트는 double 로 읽음
+            out.writeDouble(Double.parseDouble(String.valueOf(r.get("RESULT"))));
+            out.writeDouble(Double.parseDouble(String.valueOf(r.get("COUNT"))));
+
+            out.writeUTF(String.valueOf(r.get("UNIT")));
         }
 
-        // 목표 전송
-        boolean hasGoal = goal.get("TODAY_RESULT") != null;
-        out.writeBoolean(hasGoal);
-        if (hasGoal) {
-            out.writeUTF((String) goal.get("TODAY_RESULT"));
-            out.writeUTF((String) goal.get("GOAL_RESULT"));
+        // ============================================================
+        // 2) Goal (boolean + 데이터)
+        // ============================================================
+        if (goal != null) {
+            out.writeBoolean(true);
+            out.writeUTF(String.valueOf(goal.get("TODAY_RESULT")));
+            out.writeUTF(String.valueOf(goal.get("GOAL_RESULT")));
+        } else {
+            out.writeBoolean(false);
         }
 
-        // 미션 전송
-        boolean hasMission = mission.get("TODAY_MISSION") != null;
-        out.writeBoolean(hasMission);
-        if (hasMission) {
-            out.writeUTF((String) mission.get("TODAY_MISSION"));
-            out.writeInt((Integer) mission.getOrDefault("SUCCESS_MISSION", 0));
+        // ============================================================
+        // 3) Mission (boolean + todayMission + successMission)
+        // ============================================================
+        if (mission != null) {
+            out.writeBoolean(true);
+            
+            // 미션 1
+            out.writeUTF(String.valueOf(mission.getOrDefault("MISSION1_NAME", "")));
+            out.writeInt(parseIntSafe(mission.get("MISSION1_SUCCESS")));
+
+            // 미션 2
+            out.writeUTF(String.valueOf(mission.getOrDefault("MISSION2_NAME", "")));
+            out.writeInt(parseIntSafe(mission.get("MISSION2_SUCCESS")));
+
+            // 미션 3
+            out.writeUTF(String.valueOf(mission.getOrDefault("MISSION3_NAME", "")));
+            out.writeInt(parseIntSafe(mission.get("MISSION3_SUCCESS")));
+            
+        } else {
+            out.writeBoolean(false);
         }
 
-        // 이모티콘 전송
+        // ============================================================
+        // 4) Emoticon 목록
+        // ============================================================
         out.writeInt(emoticons.size());
-        for (String emo : emoticons) {
-            out.writeUTF(emo);
+        for (String e : emoticons) {
+            out.writeUTF(e);
         }
 
         out.flush();
+        System.out.println("[SERVER] SYNC_ALL 전송 완료 (" + nickname + ")");
+    }
+    
+    private int parseIntSafe(Object o) {
+        if (o == null) return 0;
+        try { return Integer.parseInt(String.valueOf(o)); } catch (Exception e) { return 0; }
+    }
+
+    // Helper: Null 안전한 Double 변환
+    private double parseDoubleSafe(Object o) {
+        if (o == null) return 0.0;
+        try { return Double.parseDouble(String.valueOf(o)); } catch (Exception e) { return 0.0; }
     }
 }
