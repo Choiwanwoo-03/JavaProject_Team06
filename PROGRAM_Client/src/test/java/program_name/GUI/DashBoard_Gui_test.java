@@ -2,17 +2,24 @@ package GUI;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 import javax.swing.table.*;
+
+import Visualization.GraphRendering;
+
 import java.awt.*;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.List;
 
 public class DashBoard_Gui extends JPanel {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    
     JTable tbAction;
     JLabel TotalCO2;
     JTextField tfSearch;
@@ -28,16 +35,19 @@ public class DashBoard_Gui extends JPanel {
         JPanel p = new JPanel(new BorderLayout());
         p.setBorder(new EmptyBorder(12, 12, 12, 12));
 
+        // 상단: 총 배출량
         TotalCO2 = new JLabel("오늘의 총 예상 배출량: 0.000 kg CO₂e", SwingConstants.CENTER);
         TotalCO2.setFont(TotalCO2.getFont().deriveFont(Font.BOLD, 16f));
         p.add(TotalCO2, BorderLayout.NORTH);
 
+        // 테이블 모델
         table = new DefaultTableModel(new String[]{
                 "날짜", "시간", "동작", "수량", "단위", "CO₂e(kg)"
         }, 0) {
             public boolean isCellEditable(int r, int c) { return false; }
         };
 
+        // 테이블
         tbAction = new JTable(table);
         tbAction.setFillsViewportHeight(true);
         sorter = new TableRowSorter<>(table);
@@ -56,6 +66,21 @@ public class DashBoard_Gui extends JPanel {
         Left.add(FilterButton);
         South.add(Left, BorderLayout.WEST);
 
+        JPanel graphPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton btnDaily = new JButton("일일 그래프");
+        JButton btnWeekly = new JButton("주간 그래프");
+        JButton btnMonthly = new JButton("월간 그래프");
+
+        btnDaily.addActionListener(e -> showGraphDialog("DAILY"));
+        btnWeekly.addActionListener(e -> showGraphDialog("WEEKLY"));
+        btnMonthly.addActionListener(e -> showGraphDialog("MONTHLY"));
+
+        graphPanel.add(btnDaily);
+        graphPanel.add(btnWeekly);
+        graphPanel.add(btnMonthly);
+
+        South.add(graphPanel, BorderLayout.CENTER);
+        
         JPanel right = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton EditButton = new JButton("수정");
         EditButton.addActionListener(e -> Modify());
@@ -70,7 +95,28 @@ public class DashBoard_Gui extends JPanel {
 
         return p;
     }
-  
+    
+    public void addLog(String date, String type, double result, double count, String unit) {
+        String time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"));
+        addLogFull(date, time, type, result, count, unit);
+    }
+    
+    private void addLogFull(String date, String time, String type, double result, double count, String unit) {
+        Object[] row = {
+            date,
+            time,
+            type,
+            String.format("%.1f", count),
+            unit,
+            String.format("%.3f", result)
+        };
+        table.addRow(row);
+        
+        SwingUtilities.invokeLater(() -> {
+            updateTotalLabel();
+        });
+    }
+
     public void loadFromServer(List<Map<String, Object>> rows) {
         table.setRowCount(0);
         if (rows == null) return;
@@ -85,7 +131,7 @@ public class DashBoard_Gui extends JPanel {
                     r.get("RESULT")
             });
         }
-        updateTotalLabel();
+        SwingUtilities.invokeLater(this::updateTotalLabel);
     }
 
     public void addLogRow(Map<String, Object> actionLog) {
@@ -98,7 +144,7 @@ public class DashBoard_Gui extends JPanel {
                 actionLog.get("unit"),
                 actionLog.get("result")
         });
-        updateTotalLabel();
+        SwingUtilities.invokeLater(this::updateTotalLabel);
     }
 
     public List<Map<String, Object>> exportForSave() {
@@ -118,16 +164,30 @@ public class DashBoard_Gui extends JPanel {
     }
 
     public double calculateTotalEmission() {
-        double sum = 0.0;
-        int rowCount = table.getRowCount();
-        String today = LocalDate.now().format(DATE_FMT);
-        for (int i = 0; i < rowCount; i++) {
-            Object dateObj = table.getValueAt(i, 0);
-            if (dateObj != null && today.equals(dateObj.toString())) {
-                sum += toDouble(table.getValueAt(i, 5));
-            }
+    	double total = 0.0;
+        String todayStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+        for (int i = 0; i < table.getRowCount(); i++) {
+            try {
+                String rowDate = String.valueOf(table.getValueAt(i, 0));
+                
+                if (todayStr.equals(rowDate)) {
+                    double val = parseDoubleSafe(table.getValueAt(i, 5));
+                    total += val;
+                }
+            } catch (Exception ignore) {}
         }
-        return sum;
+        return total;
+    }
+    
+    private double parseDoubleSafe(Object value) {
+        if (value == null) return 0.0;
+        try {
+            String s = String.valueOf(value).replace(",", "").trim();
+            return Double.parseDouble(s);
+        } catch (NumberFormatException e) {
+            return 0.0;
+        }
     }
 
     private void Filter() {
@@ -136,7 +196,7 @@ public class DashBoard_Gui extends JPanel {
             sorter.setRowFilter(null);
             return;
         }
-        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text)); // 대소문자 무시
+        sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text)); 
     }
 
     private void Modify() {
@@ -193,13 +253,10 @@ public class DashBoard_Gui extends JPanel {
         updateTotalLabel();
     }
 
-    private void updateTotalLabel() {
-        double total = 0.0;
-        int rowCount = table.getRowCount();
-        for (int i = 0; i < rowCount; i++) {
-            total += toDouble(table.getValueAt(i, 5));
-        }
+    public void updateTotalLabel() {
+    	double total = calculateTotalEmission();
         TotalCO2.setText("오늘의 총 예상 배출량: " + String.format("%.3f", total) + " kg CO₂e");
+        TotalCO2.repaint();
     }
 
     private double toDouble(Object v) {
@@ -231,6 +288,72 @@ public class DashBoard_Gui extends JPanel {
 
     public void refreshSummary() {
         updateTotalLabel();
+    }
+    
+    private void showGraphDialog(String mode) {
+        Map<String, Double> data = aggregateData(mode);
+
+        if (data.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "표시할 데이터가 없습니다.", "알림", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        String title; 
+
+        switch (mode) {
+            case "DAILY":
+                title = "일일 탄소 배출량";
+                break; 
+            case "WEEKLY":
+                title = "주간 탄소 배출량";
+                break;
+            case "MONTHLY":
+                title = "월간 탄소 배출량";
+                break;
+            default:
+                title = "탄소 배출량 그래프";
+                break;
+        }
+
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), mode + " 탄소 배출량 그래프", true);
+        dialog.setSize(900, 500);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        GraphRendering graphPanel = new GraphRendering(data);
+        dialog.add(graphPanel, BorderLayout.CENTER);
+
+        dialog.setVisible(true);
+    }
+
+    private Map<String, Double> aggregateData(String mode) {
+        Map<String, Double> data = new TreeMap<>();
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        for (int i = 0; i < table.getRowCount(); i++) {
+            try {
+                String dateStr = String.valueOf(table.getValueAt(i, 0));
+                double val = parseDoubleSafe(table.getValueAt(i, 5)); 
+                
+                LocalDate date = LocalDate.parse(dateStr, dateFmt);
+                String key = "";
+                
+                if ("DAILY".equals(mode)) {
+                    key = dateStr; 
+                } else if ("WEEKLY".equals(mode)) {
+                    WeekFields wf = WeekFields.ISO;
+                    int week = date.get(wf.weekOfWeekBasedYear());
+                    int year = date.get(wf.weekBasedYear());
+                    key = String.format("%d-W%02d", year, week);
+                } else if ("MONTHLY".equals(mode)) {
+                    key = String.format("%d-%02d", date.getYear(), date.getMonthValue());
+                }
+
+                data.put(key, data.getOrDefault(key, 0.0) + val);
+
+            } catch (Exception ignored) {}
+        }
+        return data;
     }
 
 }
