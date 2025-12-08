@@ -3,28 +3,17 @@ package database;
 import java.sql.*;
 import java.util.*;
 
-/**
- * DB에서 조회(SELECT) 전용으로 사용하는 클래스
- * - 로그인
- * - 대시보드
- * - 목표(Goal)
- * - 미션(Mission)
- * - 이모티콘 조회 담당
- */
 public class DataReader {
 
-    /**
-     * DB 연결 생성 메소드
-     */
     private Connection connect() throws SQLException {
-        String url = "jdbc:mysql://localhost:3306/ecoactiontracker?serverTimezone=Asia/Seoul";
-        String user = "root";
-        String pw   = "vkdnj3028@";
+    	 String url = "jdbc:mysql://localhost:3306/ecoactiontracker?serverTimezone=Asia/Seoul";
+         String user = "root";
+         String pw   = "vkdnj3028@";
         return DriverManager.getConnection(url, user, pw);
     }
 
     // ============================================================
-    // 1) 로그인 (ID + PW → 닉네임 반환)
+    // 1) 로그인 (ID + PW → 닉네임)
     // ============================================================
     public String login(String id, String pw) {
         String sql = "SELECT USER_NICKNAME FROM USER_TABLE WHERE USER_ID = ? AND USER_PWD = ?";
@@ -32,14 +21,11 @@ public class DataReader {
         try (Connection conn = connect();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            // 입력받은 ID, PW 바인딩
             ps.setString(1, id);
             ps.setString(2, pw);
 
-            // 쿼리 실행
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                // 로그인 성공 시 닉네임 반환
                 return rs.getString("USER_NICKNAME");
             }
 
@@ -50,7 +36,7 @@ public class DataReader {
     }
 
     // ============================================================
-    // 2) Dashboard 조회 (해당 유저의 모든 대시보드 기록)
+    // 2) Dashboard 조회
     // ============================================================
     public List<Map<String, Object>> getDashboard(String nickname) {
         List<Map<String, Object>> list = new ArrayList<>();
@@ -65,7 +51,6 @@ public class DataReader {
             ps.setString(1, nickname);
             ResultSet rs = ps.executeQuery();
 
-            // 한 행씩 Map 형태로 변환하여 List에 저장
             while (rs.next()) {
                 Map<String, Object> row = new HashMap<>();
                 row.put("DATE", rs.getString("DATE"));
@@ -84,7 +69,7 @@ public class DataReader {
     }
 
     // ============================================================
-    // 3) Goal 조회 (오늘의 목표 결과)
+    // 3) Goal 조회
     // ============================================================
     public Map<String, Object> getGoal(String nickname) {
 
@@ -98,7 +83,6 @@ public class DataReader {
             ps.setString(1, nickname);
             ResultSet rs = ps.executeQuery();
 
-            // 오늘 날짜 기준 목표 정보가 있으면 반환
             if (rs.next()) {
                 Map<String, Object> map = new HashMap<>();
                 map.put("TODAY_RESULT", rs.getString("TODAY_RESULT"));
@@ -114,7 +98,7 @@ public class DataReader {
     }
 
     // ============================================================
-    // 4) Mission 조회 (MISSION1 / 2 / 3 + 성공 여부)
+    // 4) Mission 조회 (MISSION1/2/3 + SUCCESS)
     // ============================================================
     public Map<String, Object> getMission(String nickname) {
 
@@ -130,7 +114,6 @@ public class DataReader {
             ps.setString(1, nickname);
             ResultSet rs = ps.executeQuery();
 
-            // 오늘 날짜 기준 미션 정보 반환
             if (rs.next()) {
                 Map<String, Object> map = new HashMap<>();
 
@@ -154,30 +137,20 @@ public class DataReader {
     }
 
     // ============================================================
-    // 5) 이모티콘 조회 (유저가 보유한 이모티콘 목록)
+    // 5) 이모티콘 조회
     // ============================================================
     public List<String> getEmoticons(String nickname) {
         List<String> list = new ArrayList<>();
-
-        String sql =
-                "SELECT EMOTICON_NAME FROM EMOTICON_TABLE "
-              + "WHERE USER_NICKNAME = ? ORDER BY DATE";
-
-        try (Connection conn = connect();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
+        // [수정] ORDER BY DATE -> ORDER BY EMOTICON_id (PK 사용)
+        String sql = "SELECT RELEASED_EMOTICON FROM EMOTICON_TABLE WHERE USER_NICKNAME = ? ORDER BY EMOTICON_id";
+        
+        try (Connection conn = connect(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, nickname);
             ResultSet rs = ps.executeQuery();
-
-            // 보유한 이모티콘 이름만 리스트로 저장
             while (rs.next()) {
-                list.add(rs.getString("EMOTICON_NAME"));
+                list.add(rs.getString("RELEASED_EMOTICON"));
             }
-
-        } catch (SQLException e) {
-            System.out.println("[DB][getEmoticons] 오류: " + e.getMessage());
-        }
-
+        } catch (SQLException e) { e.printStackTrace(); }
         return list;
     }
 }
