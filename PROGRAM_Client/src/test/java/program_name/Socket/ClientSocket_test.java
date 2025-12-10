@@ -1,33 +1,26 @@
 package Socket;
 
-import CommunicateServer.GetInformation;
-import CommunicateServer.GiveInformation;
+import CommunicateServer.GetInformation; // 서버로 데이터 전송 담당 클래스
+import CommunicateServer.GiveInformation; // 서버로부터 데이터 수신 담당 클래스
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.net.Socket;
 
-/**
- * 클라이언트에서 서버와 직접 통신을 담당하는 소켓 클래스
- * - 서버 연결
- * - 로그인/회원가입 결과 수신
- * - SYNC_ALL 수신 처리
- */
-public class ClientSocket {
+public class ClientSocket { // 클라이언트 측 소켓 연결 및 통신 관리
 
-    // 서버와 연결된 소켓 및 입출력 스트림
     private Socket socket;
-    private DataInputStream in;
-    private DataOutputStream out;
+    private DataInputStream in; // 서버 수신 스트림
+    private DataOutputStream out; // 서버 전송 스트림
 
-    // --- 통신 처리 클래스 ---
-    private GetInformation getInformation;   // 서버 → 클라이언트 수신 처리
-    private GiveInformation giveInformation; // 클라이언트 → 서버 송신 처리
+    // --- 통신 클래스 ---
+    private GetInformation getInformation; // 서버로 요청
+    private GiveInformation giveInformation; // 서버 응답 처리
 
-    // --- 로그인 결과 콜백 인터페이스 ---
-    public interface LoginListener {
-        void onLoginSuccess(String nickname); // 로그인 성공 시 호출
-        void onLoginFail();                   // 로그인 실패 시 호출
+    // --- 로그인 콜백 ---
+    public interface LoginListener { // 로그인 결과 처리를 위한 인터페이스
+        void onLoginSuccess(String nickname);
+        void onLoginFail();
     }
     private LoginListener loginListener;
 
@@ -35,10 +28,10 @@ public class ClientSocket {
         this.loginListener = listener;
     }
 
-    // --- SYNC_ALL 수신 콜백 등록 ---
+    // --- SYNC_ALL 콜백 등록 ---
     public void setSyncListener(GiveInformation.SyncListener listener) {
         if (giveInformation != null) {
-            giveInformation.setSyncListener(listener);
+            giveInformation.setSyncListener(listener); // 데이터 수신 클래스에 리스너 설정
         }
     }
     
@@ -50,24 +43,20 @@ public class ClientSocket {
         return giveInformation;
     }
 
-    // ======================================================
+
     // 서버 연결
-    // ======================================================
-    public boolean connectToServer(String host, int port) {
+    public boolean connectToServer(String host, int port) { // 서버 연결 시도 및 스트림 초기화
         try {
-            // 서버 소켓 연결 및 스트림 생성
-            socket = new Socket(host, port);
+            socket = new Socket(host, port); // 소켓 연결 시도
             in = new DataInputStream(socket.getInputStream());
             out = new DataOutputStream(socket.getOutputStream());
 
-            // 통신 처리 객체 생성
-            getInformation = new GetInformation(this);
-            giveInformation = new GiveInformation(this);
+            getInformation = new GetInformation(this); // 전송 클래스 초기화
+            giveInformation = new GiveInformation(this); // 수신 클래스 초기화
 
             System.out.println("[CLIENT] 서버 연결 성공");
 
-            // 서버 수신 대기 스레드 시작
-            startReceiveLoop();
+            startReceiveLoop(); // 서버 수신 스레드 시작
             return true;
 
         } catch (Exception e) {
@@ -76,68 +65,54 @@ public class ClientSocket {
         }
     }
 
-    // ======================================================
-    // 서버 수신 스레드 (계속 서버 메시지를 대기)
-    // ======================================================
-    private void startReceiveLoop() {
+
+    // 서버 수신 스레드
+    private void startReceiveLoop() { // 서버로부터 응답을 대기하는 스레드 생성
 
         Thread t = new Thread(() -> {
             try {
                 while (true) {
-
                     // 서버에서 명령어 수신
                     String cmd = in.readUTF();
 
-                    // ===============================
-                    // SYNC_ALL (DB 데이터 전체 수신)
-                    // ===============================
+                    // SYNC_ALL (DB → 클라이언트 로딩)
                     if (cmd.equals("SYNC_ALL")) {
-                        giveInformation.handleSyncAll();
+                        giveInformation.handleSyncAll(); // 수신 데이터 처리 위임
                         continue;
                     }
 
-                    // ===============================
-                    // LOGIN_OK (로그인 성공)
-                    // ===============================
+                    // LOGIN_OK
                     if (cmd.equals("LOGIN_OK")) {
                         String nickname = in.readUTF();
                         System.out.println("[CLIENT] 로그인 성공: " + nickname);
 
                         if (loginListener != null) {
-                            loginListener.onLoginSuccess(nickname);
+                            loginListener.onLoginSuccess(nickname); // 성공 콜백 호출
                         }
                         continue;
                     }
 
-                    // ===============================
-                    // LOGIN_FAIL (로그인 실패)
-                    // ===============================
+                    // LOGIN_FAIL
                     if (cmd.equals("LOGIN_FAIL")) {
                         System.out.println("[CLIENT] 로그인 실패");
                         if (loginListener != null) {
-                            loginListener.onLoginFail();
+                            loginListener.onLoginFail(); // 실패 콜백 호출
                         }
                         continue;
                     }
 
-                    // ===============================
-                    // REGISTER_OK (회원가입 성공)
-                    // ===============================
+                    // REGISTER_OK / REGISTER_FAIL 등 처리
                     if (cmd.equals("REGISTER_OK")) {
                         System.out.println("[CLIENT] 회원가입 성공");
                         continue;
                     }
-
-                    // ===============================
-                    // REGISTER_FAIL (회원가입 실패)
-                    // ===============================
                     if (cmd.equals("REGISTER_FAIL")) {
                         System.out.println("[CLIENT] 회원가입 실패");
                         continue;
                     }
 
                     // ===============================
-                    // 알 수 없는 명령어 수신
+                    // 기타 명령어가 올 경우
                     // ===============================
                     System.out.println("[CLIENT] Unknown command from server: " + cmd);
                 }
@@ -147,22 +122,17 @@ public class ClientSocket {
             }
         });
 
-        // 프로그램 종료 시 같이 종료되도록 데몬 스레드 설정
-        t.setDaemon(true);
+        t.setDaemon(true); // 데몬 스레드로 설정 (메인 스레드 종료 시 함께 종료)
         t.start();
     }
 
-    // ======================================================
-    // Getter (외부 클래스에서 스트림 접근용)
-    // ======================================================
+    // Getter
     public DataOutputStream getOut() { return out; }
     public DataInputStream getIn() { return in; }
     public GetInformation getGetter() { return getInformation; }
     public GiveInformation getGiver() { return giveInformation; }
 
-    // ======================================================
     // 소켓 종료
-    // ======================================================
     public void close() {
         try {
             if (socket != null) socket.close();

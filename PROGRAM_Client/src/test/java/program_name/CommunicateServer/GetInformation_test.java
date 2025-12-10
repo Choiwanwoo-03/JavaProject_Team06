@@ -6,25 +6,21 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 클라이언트 → 서버 요청 전송 클래스
- */
+ // 클라이언트 → 서버 요청 전송 클래스 (데이터 직렬화 및 전송 담당)
 public class GetInformation {
 
     private final ClientSocket client;
-    private final DataOutputStream out;
+    private final DataOutputStream out; // 서버로 데이터를 보낼 출력 스트림
 
     public GetInformation(ClientSocket client) {
         this.client = client;
-        this.out = client.getOut();
+        this.out = client.getOut(); // 출력 스트림 초기화
     }
 
-    // ----------------------------
-    // 로그인 요청
-    // ----------------------------
+    // 로그인 요청 (LOGIN)
     public void sendLogin(String id, String pw) {
         try {
-            out.writeUTF("LOGIN");
+            out.writeUTF("LOGIN"); // 명령 헤더 전송
             out.writeUTF(id);
             out.writeUTF(pw);
             out.flush();
@@ -33,12 +29,10 @@ public class GetInformation {
         }
     }
 
-    // ----------------------------
-    // 회원가입 요청
-    // ----------------------------
+    // 회원가입 요청 (REGISTER)
     public void sendRegister(String id, String pw, String nickname) {
         try {
-            out.writeUTF("REGISTER");
+            out.writeUTF("REGISTER"); // 명령 헤더 전송
             out.writeUTF(id);
             out.writeUTF(pw);
             out.writeUTF(nickname);
@@ -48,12 +42,10 @@ public class GetInformation {
         }
     }
 
-    // ----------------------------
-    // SYNC_ALL 요청
-    // ----------------------------
+    // SYNC_ALL 요청 (REQUEST_SYNC)
     public void sendRequestSync(String nickname) {
         try {
-            out.writeUTF("REQUEST_SYNC");
+            out.writeUTF("REQUEST_SYNC"); // 명령 헤더 전송
             out.writeUTF(nickname);
             out.flush();
         } catch (IOException e) {
@@ -61,9 +53,7 @@ public class GetInformation {
         }
     }
 
-    // ----------------------------
-    // SAVE_ALL : 종료 시 전체 저장 요청
-    // ----------------------------
+    // SAVE_ALL : 종료 시 전체 저장 요청 (모든 사용자 데이터 전송)
     public void sendSaveAll(
             String nickname,
             List<Map<String, Object>> dashboard,
@@ -72,10 +62,10 @@ public class GetInformation {
             List<String> emoticons
     ) {
         try {
-            out.writeUTF("SAVE_ALL");
+            out.writeUTF("SAVE_ALL"); // 명령 헤더 전송
             out.writeUTF(nickname);
 
-            // Dashboard
+            // Dashboard 데이터 직렬화 및 전송 (개수 포함)
             out.writeInt(dashboard.size());
             for (Map<String, Object> r : dashboard) {
                 out.writeUTF(String.valueOf(r.get("DATE")));
@@ -86,14 +76,14 @@ public class GetInformation {
                 out.writeUTF(String.valueOf(r.get("UNIT")));
             }
 
-            // Goal
+            // Goal 데이터 직렬화 및 전송 (존재 여부 포함)
             out.writeBoolean(goal != null);
             if (goal != null) {
                 out.writeUTF(String.valueOf(goal.get("TODAY_RESULT")));
                 out.writeUTF(String.valueOf(goal.get("GOAL_RESULT")));
             }
 
-            // Mission
+            // Mission 데이터 직렬화 및 전송 (존재 여부 포함)
             out.writeBoolean(mission != null);
             if (mission != null) {
                 out.writeUTF(String.valueOf(mission.get("MISSION1_NAME")));
@@ -106,7 +96,7 @@ public class GetInformation {
                 out.writeInt(Integer.parseInt(String.valueOf(mission.get("MISSION3_SUCCESS"))));
             }
 
-            // Emoticons
+            // Emoticons 데이터 직렬화 및 전송 (개수 포함)
             out.writeInt(emoticons.size());
             for (String name : emoticons) {
                 out.writeUTF(name);
@@ -119,12 +109,10 @@ public class GetInformation {
         }
     }
 
-    // ----------------------------
-    // [추가] UPDATE_GOAL: 목표 설정 시 서버로 전송
-    // ----------------------------
+    // UPDATE_GOAL: 목표 설정 시 서버로 전송
     public void sendUpdateGoal(String nickname, String todayResult, String goalResult) {
         try {
-            out.writeUTF("UPDATE_GOAL");
+            out.writeUTF("UPDATE_GOAL"); // 명령 헤더 전송
             out.writeUTF(nickname);
             out.writeUTF(todayResult);
             out.writeUTF(goalResult);
@@ -135,12 +123,10 @@ public class GetInformation {
         }
     }
 
-    // ----------------------------
     // UNLOCK_EMOTICON
-    // ----------------------------
     public void sendUnlockEmoticon(String nickname, String name) {
         try {
-            out.writeUTF("UNLOCK_EMOTICON");
+            out.writeUTF("UNLOCK_EMOTICON"); // 명령 헤더 전송
             out.writeUTF(nickname);
             out.writeUTF(name);
             out.flush();

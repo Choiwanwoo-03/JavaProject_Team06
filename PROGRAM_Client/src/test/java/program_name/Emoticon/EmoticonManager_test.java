@@ -2,18 +2,13 @@ package Emoticon;
 
 import java.util.*;
 
-/**
- * 클라이언트 이모티콘 상태를 관리하는 클래스
- * - 전체 이모티콘 목록
- * - 공개(해금)된 이모티콘 이름 관리
- * - 서버 전송/수신 시 이름으로 연동
- */
+ // 클라이언트 이모티콘 상태를 관리하는 클래스
 public class EmoticonManager {
 
     /** 이모티콘 정보 구조체 */
     public static class EmoticonInfo {
-        public final String emoji;       // 이모지 자체 (🌳, ♻️ 등)
-        public final String name;        // 이모티콘 이름 (DB에 저장되는 이름)
+        public final String emoji;       // 이모지 자체
+        public final String name;        // 이모티콘 이름 (DB 키)
         public final String description; // 설명
 
         public EmoticonInfo(String emoji, String name, String description) {
@@ -23,19 +18,18 @@ public class EmoticonManager {
         }
     }
 
-    /** 전체 이모티콘 목록 (name 기준으로 정렬 보존을 위해 LinkedHashMap 사용) */
+    // 전체 이모티콘 목록
     private final Map<String, EmoticonInfo> allEmoticons = new LinkedHashMap<>();
 
-    /** 해금된 이모티콘 이름들 (name 기준) */
+    // 해금된 이모티콘 이름
     private final Set<String> unlockedNames = new HashSet<>();
 
     public EmoticonManager() {
-        initDefaultEmoticons();
+        initDefaultEmoticons(); // 생성자에서 기본 이모티콘 초기화
     }
 
-    /** 기본 이모티콘 목록 정의 */
+    // 기본 이모티콘 목록
     private void initDefaultEmoticons() {
-        // 이름은 DB IMOTICON_TABLE과 맞추면 좋음 (여기서는 예시)
         add("🌳", "미니 나무", "하루 동안 목표 이하의 탄소를 배출했을 때 주어지는 작은 나무 이모티콘입니다.");
         add("💡", "절약 전구", "전기 사용을 줄이고 에너지를 절약했을 때 해금되는 전구 이모티콘입니다.");
         add("🚲", "친환경 라이더", "자동차 대신 대중교통이나 자전거를 이용했을 때 얻을 수 있는 이모티콘입니다.");
@@ -45,32 +39,32 @@ public class EmoticonManager {
     }
 
     private void add(String emoji, String name, String description) {
-        allEmoticons.put(name, new EmoticonInfo(emoji, name, description));
+        allEmoticons.put(name, new EmoticonInfo(emoji, name, description)); // 전체 목록에 이모티콘 추가
     }
 
-    /** 전체 이모티콘 정보를 순서대로 반환 (도감 표시용) */
+    // 전체 이모티콘 정보를 순서대로 반환
     public Collection<EmoticonInfo> getAllEmoticons() {
         return Collections.unmodifiableCollection(allEmoticons.values());
     }
 
-    /** 이름으로 이모티콘 정보 조회 */
+    // 이름으로 이모티콘 정보 조회
     public EmoticonInfo getInfo(String name) {
         return allEmoticons.get(name);
     }
 
-    /** 특정 이모티콘이 해금되어 있는지 여부 */
+    // 특정 이모티콘이 해금되어 있는지 여부 확인
     public boolean isUnlocked(String name) {
         return unlockedNames.contains(name);
     }
 
-    /** 하나의 이모티콘 해금 */
+    // 하나의 이모티콘 해금
     public void unlock(String name) {
         if (allEmoticons.containsKey(name)) {
             unlockedNames.add(name);
         }
     }
 
-    /** 여러 개를 한 번에 해금 (서버에서 받은 목록을 반영할 때 사용) */
+    // 여러 개를 한 번에 해금
     public void unlockAll(Collection<String> names) {
         if (names == null) return;
         for (String n : names) {
@@ -80,10 +74,7 @@ public class EmoticonManager {
         }
     }
 
-    /**
-     * "미니 나무,절약 전구,..." 형식의 문자열을 서버에서 받았다는 가정하에
-     * 클라이언트 해금 상태로 반영하는 메서드 (필요하면 사용)
-     */
+    // 문자열을 클라이언트 해금 상태로 반영
     public void loadUnlockedFromCsv(String csv) {
         unlockedNames.clear();
         if (csv == null || csv.isEmpty()) return;
@@ -97,10 +88,7 @@ public class EmoticonManager {
         }
     }
 
-    /**
-     * 현재 해금된 이모티콘 목록을 "미니 나무,절약 전구,..." 형식의 CSV 문자열로 변환
-     * (서버로 전송하거나 디버깅에 사용할 수 있음)
-     */
+    // 현재 해금된 이모티콘 목록을 CSV 문자열로 변환
     public String buildUnlockedCsv() {
         StringBuilder sb = new StringBuilder();
         int i = 0;
@@ -112,13 +100,14 @@ public class EmoticonManager {
         return sb.toString();
     }
 
- // EmoticonManager.java 내부에 추가
+    // EmoticonManager.java 내부에 추가
     public List<String> getUnlockedNamesList() {
-        return new ArrayList<>(unlockedNames);
+        return new ArrayList<>(unlockedNames); // 해금된 이모티콘 이름 리스트 반환
     }
-    
+
+    // 잠겨있는 이모티콘 중 하나를 랜덤으로 선택
     public String getRandomLockedEmoticon() {
-        // 1. 잠겨있는(아직 못 얻은) 이모티콘 목록 만들기
+        // 잠겨있는(아직 못 얻은) 이모티콘 목록 만들기
         List<String> lockedList = new ArrayList<>();
         
         for (String name : allEmoticons.keySet()) {
@@ -127,14 +116,14 @@ public class EmoticonManager {
             }
         }
 
-        // 2. 다 모았으면 null 반환
+        // 다 모았으면 null 반환
         if (lockedList.isEmpty()) {
             return null;
         }
 
-        // 3. 랜덤으로 하나 뽑기
+        // 랜덤으로 하나 뽑기
         Random rnd = new Random();
         int index = rnd.nextInt(lockedList.size());
-        return lockedList.get(index);
+        return lockedList.get(index); // 랜덤으로 선택된 잠긴 이모티콘 이름 반환
     }
 }
