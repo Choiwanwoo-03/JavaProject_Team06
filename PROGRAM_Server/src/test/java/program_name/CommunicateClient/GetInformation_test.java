@@ -7,9 +7,9 @@ import java.util.*;
 
 public class GetInformation {
 
-    private final DataWriter writer = new DataWriter();
+    private final DataWriter writer = new DataWriter(); // DB 저장 객체 초기화
 
-    // ConnectedClient에서 cmd를 먼저 읽고 넘겨줌
+    // 클라이언트의 명령(cmd)에 따라 데이터 처리 메서드를 분기
     public void handle(String cmd, DataInputStream in) throws IOException {
 
         switch (cmd) {
@@ -21,7 +21,6 @@ public class GetInformation {
                 handleUpdateMission(in);
                 break;
 
-            // [추가] 목표만 별도로 업데이트
             case "UPDATE_GOAL":
                 handleUpdateGoal(in);
                 break;
@@ -35,9 +34,7 @@ public class GetInformation {
         }
     }
 
-    // =====================================================================
-    // SAVE_ALL : Dashboard + Goal + Mission(1/2/3) + Emoticon 저장
-    // =====================================================================
+    // SAVE_ALL: 대시보드, 목표, 미션, 이모티콘 등 모든 데이터를 읽어 DB에 저장
     private void handleSaveAll(DataInputStream in) throws IOException {
 
         String nickname = in.readUTF();
@@ -47,6 +44,7 @@ public class GetInformation {
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
 
         for (int i = 0; i < rowCount; i++) {
+            // 대시보드 데이터를 스트림에서 읽어 Map에 저장
             Map<String, Object> r = new HashMap<String, Object>();
             r.put("DATE", in.readUTF());
             r.put("TIME", in.readUTF());
@@ -64,6 +62,7 @@ public class GetInformation {
         String todayResult = "0";
         String goalResult  = "0";
         if (hasGoal) {
+            // 목표 데이터를 스트림에서 읽음
             todayResult = in.readUTF();
             goalResult  = in.readUTF();
         }
@@ -72,6 +71,7 @@ public class GetInformation {
         boolean hasMission = in.readBoolean();
         Map<String, Object> mission = new HashMap<>();
         if (hasMission) {
+            // 미션 데이터를 스트림에서 읽음
             mission.put("MISSION1_NAME", in.readUTF());
             mission.put("MISSION1_SUCCESS", in.readInt());
 
@@ -86,35 +86,29 @@ public class GetInformation {
         int emoCount = in.readInt();
         List<String> emoticons = new ArrayList<>();
         for (int i = 0; i < emoCount; i++) {
+            // 이모티콘 이름을 스트림에서 읽음
             emoticons.add(in.readUTF());
         }
 
-        // ====================================
-        // DB 저장
-        // ====================================
+        // DB 저장 시작
         writer.replaceDashboard(nickname, rows);
         
-        // 목표 저장
         if (hasGoal) {
-            writer.upsertGoal(nickname, todayResult, goalResult);
+            writer.upsertGoal(nickname, todayResult, goalResult); // 목표 저장/업데이트
         }
         
-        // 미션 저장
         if (hasMission) {
-            writer.upsertMission(nickname, mission);
+            writer.upsertMission(nickname, mission); // 미션 저장/업데이트
         }
         
-        // 이모티콘 저장
         if (!emoticons.isEmpty()) {
-            writer.insertEmoticon(nickname, emoticons);
+            writer.insertEmoticon(nickname, emoticons); // 이모티콘 저장
         }
 
         System.out.println("[SERVER] SAVE_ALL 처리 완료: " + nickname);
     }
 
-    // =====================================================================
-    // UPDATE_MISSION : 미션 1/2/3 업데이트
-    // =====================================================================
+    // UPDATE_MISSION: 미션 데이터만 업데이트
     private void handleUpdateMission(DataInputStream in) throws IOException {
         String nickname = in.readUTF();
 
@@ -128,33 +122,28 @@ public class GetInformation {
         mission.put("MISSION3_NAME", in.readUTF());
         mission.put("MISSION3_SUCCESS", in.readInt());
 
-        writer.upsertMission(nickname, mission);
+        writer.upsertMission(nickname, mission); // 미션 데이터 DB 저장
 
         System.out.println("[SERVER] UPDATE_MISSION 저장 완료 (" + nickname + ")");
     }
 
-    // =====================================================================
-    // [추가] UPDATE_GOAL : 목표 업데이트
-    // =====================================================================
+    // UPDATE_GOAL: 목표 데이터만 업데이트
     private void handleUpdateGoal(DataInputStream in) throws IOException {
         String nickname = in.readUTF();
         String todayResult = in.readUTF();
         String goalResult = in.readUTF();
 
-        // DB에 저장 (DataWriter에 이미 upsertGoal 메서드가 있음)
-        writer.upsertGoal(nickname, todayResult, goalResult);
+        writer.upsertGoal(nickname, todayResult, goalResult); // 목표 데이터 DB 저장
 
         System.out.println("[SERVER] UPDATE_GOAL 저장 완료 (" + nickname + ") : " + goalResult);
     }
 
-    // =====================================================================
-    // UNLOCK_EMOTICON
-    // =====================================================================
+    // UNLOCK_EMOTICON: 이모티콘 해금 정보 저장
     private void handleUnlockEmoticon(DataInputStream in) throws IOException {
         String nickname = in.readUTF();
         String name = in.readUTF();
 
-        writer.insertSingleEmoticon(nickname, name);
+        writer.insertSingleEmoticon(nickname, name); // 단일 이모티콘 해금 정보 DB 저장
 
         System.out.println("[SERVER] 이모티콘 해금: " + name);
     }
