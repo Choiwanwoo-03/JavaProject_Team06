@@ -24,7 +24,7 @@ public class AchieveGoal_Gui_test extends JPanel {
     private final Supplier<Double> recommendedGoal; // 권장 목표(kg) 공급자
     private final OpeningEmoticon_test rewardHandler; // 보상 이벤트 처리자
 
-    // 상태 라벨
+    // /상태 라벨
     private final JLabel lblGoal = new JLabel();
     private final JLabel lblToday = new JLabel();
     private final JLabel lblAchv = new JLabel();
