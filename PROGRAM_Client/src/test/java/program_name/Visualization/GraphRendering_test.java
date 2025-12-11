@@ -14,7 +14,7 @@ public class GraphRendering_test extends JPanel {
         setBackground(Color.WHITE);
         setOpaque(true);
     }
-
+//
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
