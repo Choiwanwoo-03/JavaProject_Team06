@@ -1,5 +1,5 @@
 # JavaProject_Team06
-선문대학교 2학년 JAVA응용프로젝트 12분반 조별프로젝트_탄소배출량계산 프로그램
+선문대학교 2학년 JAVA응용프로젝트 12분반 6조 조별프로젝트_탄소배출량 계산 및 가이드 프로그램
 
 📚 '님 없으면 지구 망해요' 프로젝트 계획서
 ---
@@ -20,6 +20,12 @@
 - 기존 프로그램과 차별화된 실시간 수치 피드백 및 수집 요소 도입.
 
 ---
+🎯 프로젝트 목표
+-
+재미있고 쉽게 접근 가능한 방식으로 시민들의 지속적인 친환경 행동 참여를 유도하고 동기부여를 제공하는 프로그램 개발.
+
+---
+
 ✨ 주요 기능 
 -
 1. 탄소 배출량 실시간 환산 및 기록 (동작 등록 탭 & 대시보드)
@@ -61,48 +67,99 @@
 정상윤 - 2024310022
 
 ---
+
 🛠 기술 스택
 -
-언어: Java
+개발 언어 : Java
+	
+GUI 프레임워크 : java Swing
+
+데이터베이스 : MySQL
+
+라이브러리 : MySQL JDBC Driver
 
-GUI: Java Swing
-
-개발 환경: Java 응용프로젝트 과정
+통신 : java Socket
+
+개발 프로그램 : Eclipse / VSCODE
+
+협업 도구 : Git, SourceTree, Notion
 
 ---
+
+🛠 코드 설치 및 실행 방법
+-
+
+1. 데이터베이스를 생성한다.
+
+2. SQL 명령어를 실행해 각 테이블을 생성해준다. (아래 첨부)
+
+3. PROGRAM_Server/database/dataReader
+   PROGRAM_Server/database/dataWriter
+   파일의 자신이 생성한 데이터베이스 키와 아이디, 패스워드를 입력한다.
+
+4. Server의 Main 파일을 실행하여 서버를 열고 Client의 Main 파일을 실행하여 클라이언트를 서버에 접속 시킨다.
+
+5. 로그인 화면이 뜨면 아이디는 3자 이상, 패스워드는 6자 이상을 입력하여 회원가입을 해준 뒤 로그인한다.
+
+
+테이블 생성 코드
+-
+
+CREATE TABLE USER_TABLE ( 
+USER_ID VARCHAR(10) NOT NULL PRIMARY KEY,  USER_PWD VARCHAR(20) NOT NULL,  USER_NICKNAME VARCHAR(10)  NOT NULL UNIQUE  );
+
+CREATE TABLE DASHBOARD_TABLE ( 
+dashboard_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, USER_NICKNAME VARCHAR(10) NOT NULL,  DATE DATE NOT NULL,  TIME TIME NOT NULL,  TYPE VARCHAR(20) NOT NULL,  RESULT DECIMAL(7,3) NOT NULL,  COUNT DECIMAL(6,2) NOT NULL,  UNIT VARCHAR(10) NOT NULL,  FOREIGN KEY (USER_NICKNAME) REFERENCES user_table(USER_NICKNAME) 
+);
+
+CREATE TABLE GOAL_TABLE ( 
+GOAL_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, USER_NICKNAME VARCHAR(10) NOT NULL, 
+DATE DATE NOT NULL, 
+TODAY_RESULT VARCHAR(20) NOT NULL, 
+GOAL_RESULT VARCHAR(20) NOT NULL, 
+FOREIGN KEY (USER_NICKNAME) REFERENCES user_table(USER_NICKNAME) 
+);
+
+CREATE TABLE MISSION_TABLE ( 
+MISSION_id INT NOT NULL AUTO_INCREMENT, 
+USER_NICKNAME VARCHAR(50) NOT NULL, 
+DATE DATE NOT NULL, 
+MISSION1_NAME VARCHAR(255), MISSION1_SUCCESS INT DEFAULT 0, MISSION2_NAME VARCHAR(255), MISSION2_SUCCESS INT DEFAULT 0, MISSION3_NAME VARCHAR(255), MISSION3_SUCCESS INT DEFAULT 0, PRIMARY KEY (MISSION_id), 
+FOREIGN KEY (USER_NICKNAME) REFERENCES USER_TABLE(USER_NICKNAME), 
+UNIQUE KEY UQ_MISSION_USER_DATE (USER_NICKNAME, DATE) 
+);
+
+CREATE TABLE EMOTICON_TABLE ( 
+EMOTICON_id INT NOT NULL AUTO_INCREMENT, 
+USER_NICKNAME VARCHAR(10) NOT NULL, 
+RELEASED_EMOTICON VARCHAR(20) NOT NULL, 
+PRIMARY KEY(EMOTICON_id), 
+FOREIGN KEY (USER_NICKNAME) REFERENCES USER_TABLE(USER_NICKNAME) 
+);
+
+---
+
+
 📅 개발 기간 및 일정
 -
 개발 기간
 
-계획/기획: 9월 25일 ~ 10월 16일
+계획/기획: 9월 25일 ~ 10월 17일 (4주차 ~ 7주차)
 
-분석: 10월 21일 ~ 10월 31일
+분석: 10월 20일 ~ 10월 26일 (8주차)
 
-설계: 10월 27일 ~ 11월 12일
+설계: 10월 27일 ~ 11월 12일 (9주차 ~ 11주차)
 
-구현: 11월 13일 ~ 12월 10일
+구현: 11월 13일 ~ 12월 8일 (11주차 ~ 15주차)
 
-테스트: 11월 27일 ~ 12월 10일
-
----- 주요 작업 내용 ----
-
-8주차 10월 21일 ~ 요구사항 분석
-
-9주차 10월 27일 ~ 구조 설계
-
-10주차 11월 2일 ~ 인터페이스 설계
-
-11주차 11월 13일 ~ 구현
-
-12주차 ~ 구현 
-
-13주차 ~ 구현 및 디버깅
-
-14주차 ~ 구현 및 디버깅
-
-15주차 12월 11일 ~ 디버깅 마무리 및 보고서 제출
+테스트: 11월 27일 ~ 12월 8일 (13주차 ~ 15주차)
 
 ---
-🎯 프로젝트 목표
+
+📞 문의처(이메일)
 -
-재미있고 쉽게 접근 가능한 방식으로 시민들의 지속적인 친환경 행동 참여를 유도하고 동기부여를 제공하는 프로그램 개발.
+chldhksdn37@gmail.com
+
+hwa2367@sunmoon.ac.kr
+
+---
