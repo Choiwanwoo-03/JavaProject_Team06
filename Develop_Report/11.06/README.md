@@ -10,4 +10,7 @@
 
 정상윤 :
 
-최완우 : 활동보고서.jpg / ERD.jpeg / 스키마1, 2.jpeg
+최완우 : 
+  활동보고서.jpg 
+  ERD.jpeg 
+  스키마1, 2.jpeg
