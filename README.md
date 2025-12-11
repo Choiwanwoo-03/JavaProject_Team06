@@ -1,7 +1,8 @@
-# JavaProject_Team06
-선문대학교 2학년 JAVA응용프로젝트 12분반 6조 조별프로젝트_탄소배출량 계산 및 가이드 프로그램
+# 📚 JavaProject_Team06 '님 없으면 지구 망해요' 프로젝트 계획서
+선문대학교 2학년 JAVA응용프로젝트 12분반 
 
-📚 '님 없으면 지구 망해요' 프로젝트 계획서
+6조 조별프로젝트_탄소배출량 계산 및 가이드 프로그램
+
 ---
 📖 프로젝트 소개
 -
@@ -35,7 +36,7 @@
 
 - 행동 기록의 필터링, 수정, 삭제 기능 제공.
 
---
+---
   
 2. 목표 달성 및 동기 부여 (목표 달성 트래커 탭)
 - 일일 탄소 배출 목표 설정 및 현재 달성률 시각화.
@@ -44,14 +45,14 @@
 
 - 일별, 주간, 월간 단위로 집계된 탄소 배출량 및 활동 횟수 종합 그래프 표시.
 
---
+---
   
 3. 학습 및 가이드 제공 (가이드 탭)
 - 분리수거 방법, 일상생활 탄소 절감 팁 등 환경 정보를 제공 (읽기 전용).
 
 - 항목 선택 시 해당 행동에 대한 상세 가이드 제공.
 
---
+---
 
 4. 수집 요소 (도감 탭)
 - 사용자가 친환경 행동을 통해 수집한 이모티콘의 현황을 시각적으로 확인.
@@ -74,18 +75,25 @@
 🛠 기술 스택
 -
 개발 언어 : Java
-	
+
+
 GUI 프레임워크 : java Swing
-
+
+
 데이터베이스 : MySQL
-
+
+
 라이브러리 : MySQL JDBC Driver
 
+
 통신 : java Socket
-
+
+
 개발 프로그램 : Eclipse / VSCODE
-
+
+
 협업 도구 : Git, SourceTree, Notion
+
 
 ---
 
@@ -107,14 +115,21 @@ GUI 프레임워크 : java Swing
 
 테이블 생성 코드
 -
+- 유저 테이블
 
 CREATE TABLE USER_TABLE ( 
 USER_ID VARCHAR(10) NOT NULL PRIMARY KEY,  USER_PWD VARCHAR(20) NOT NULL,  USER_NICKNAME VARCHAR(10)  NOT NULL UNIQUE  );
+
+
+- 대시보드 테이블
 
 CREATE TABLE DASHBOARD_TABLE ( 
 dashboard_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, USER_NICKNAME VARCHAR(10) NOT NULL,  DATE DATE NOT NULL,  TIME TIME NOT NULL,  TYPE VARCHAR(20) NOT NULL,  RESULT DECIMAL(7,3) NOT NULL,  COUNT DECIMAL(6,2) NOT NULL,  UNIT VARCHAR(10) NOT NULL,  FOREIGN KEY (USER_NICKNAME) REFERENCES user_table(USER_NICKNAME) 
 );
 
+
+- 목표 테이블
+  
 CREATE TABLE GOAL_TABLE ( 
 GOAL_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, USER_NICKNAME VARCHAR(10) NOT NULL, 
 DATE DATE NOT NULL, 
@@ -123,6 +138,9 @@ GOAL_RESULT VARCHAR(20) NOT NULL,
 FOREIGN KEY (USER_NICKNAME) REFERENCES user_table(USER_NICKNAME) 
 );
 
+
+- 미션 테이블
+  
 CREATE TABLE MISSION_TABLE ( 
 MISSION_id INT NOT NULL AUTO_INCREMENT, 
 USER_NICKNAME VARCHAR(50) NOT NULL, 
@@ -132,6 +150,9 @@ FOREIGN KEY (USER_NICKNAME) REFERENCES USER_TABLE(USER_NICKNAME),
 UNIQUE KEY UQ_MISSION_USER_DATE (USER_NICKNAME, DATE) 
 );
 
+
+- 이모티콘 테이블
+  
 CREATE TABLE EMOTICON_TABLE ( 
 EMOTICON_id INT NOT NULL AUTO_INCREMENT, 
 USER_NICKNAME VARCHAR(10) NOT NULL, 
