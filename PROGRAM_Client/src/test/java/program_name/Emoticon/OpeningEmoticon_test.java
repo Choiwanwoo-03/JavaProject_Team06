@@ -22,7 +22,7 @@ public class OpeningEmoticon_test extends JDialog {
     private static void put(String name, String emoji, String desc) { CATALOG.put(name, new Emoji(emoji, name, desc)); }
     private record Emoji(String emoji, String name, String desc) {}
 
-    /** 편의 호출: 부모 컴포넌트와 이모티콘 이름만 넘기면 보상 팝업 표시 */
+    //** 편의 호출: 부모 컴포넌트와 이모티콘 이름만 넘기면 보상 팝업 표시 */
     public static void showReward(Component parent, String emojiName) {
         new OpeningEmoticon_test(parent, emojiName).setVisible(true);
     }
