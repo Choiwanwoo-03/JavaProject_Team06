@@ -10,4 +10,4 @@
 
 정상윤 :
 
-최완우 : 활동보고서.jpg
+최완우 : 활동보고서.jpg / GitHub_설명서.PDF / SourceTree_설명서.PDF
